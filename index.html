@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MediQ - Intelligent Healthcare Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script
+      type="text/javascript"
+      src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"
+    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+      body {
+        background-color: #f8fafc;
+        color: #0f172a;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      #mynetwork {
+        width: 100%;
+        height: 100%;
+        outline: none;
+      }
+      .msg-enter {
+        animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Clinical Light Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+    </style>
+  </head>
+  <body class="h-screen w-screen flex overflow-hidden selection:bg-blue-100">
+    <div
+      class="w-1/2 flex flex-col h-full border-r border-slate-200 bg-white relative z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]"
+    >
+      <div
+        class="p-5 border-b border-slate-100 flex justify-between items-center bg-white z-20"
+      >
+        <div class="flex items-center gap-3">
+          <button
+            onclick="toggleSessionDrawer()"
+            class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors shadow-sm border border-slate-100"
+          >
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+          <h1
+            class="text-xl font-bold flex items-center gap-3 text-blue-600 tracking-tight"
+          >
+            <i data-lucide="heart-pulse" class="w-6 h-6 text-teal-500"></i>
+            MediQ Hub
+          </h1>
+        </div>
+        <span
+          class="text-xs font-bold text-teal-700 bg-teal-50 px-3 py-1.5 rounded-full border border-teal-200 shadow-sm flex items-center gap-1"
+        >
+          <div class="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></div>
+          Agent Online
+        </span>
+      </div>
+
+      <div
+        id="session-drawer"
+        class="absolute inset-y-0 left-0 w-72 bg-slate-50 shadow-2xl border-r border-slate-200 transform -translate-x-full transition-transform duration-300 ease-in-out z-50 flex flex-col"
+      >
+        <div
+          class="p-5 border-b border-slate-200 flex justify-between items-center bg-white"
+        >
+          <h2 class="text-md font-bold text-slate-800 flex items-center gap-2">
+            <i data-lucide="folder-clock" class="w-4 h-4 text-blue-500"></i>
+            Active Sessions
+          </h2>
+          <button
+            onclick="toggleSessionDrawer()"
+            class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+          >
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <div class="p-4 border-b border-slate-200 bg-white">
+          <button
+            onclick="createNewSession()"
+            class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-all shadow-sm flex items-center justify-center gap-2"
+          >
+            <i data-lucide="plus" class="w-4 h-4"></i> New Clinical Query
+          </button>
+        </div>
+        <div
+          id="session-list"
+          class="flex-1 overflow-y-auto p-3 space-y-2"
+        ></div>
+      </div>
+
+      <div
+        id="chat-box"
+        class="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth bg-slate-50/50"
+      ></div>
+
+      <div class="p-5 border-t border-slate-100 bg-white z-20">
+        <form id="chat-form" class="relative flex items-center group">
+          <input
+            type="text"
+            id="user-input"
+            class="w-full bg-slate-50 text-sm text-slate-800 rounded-xl border border-slate-200 px-5 py-4 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder-slate-400 shadow-inner"
+            placeholder="E.g. Retrieve the clinical history for patient ID ff331e5c-..."
+          />
+          <button
+            type="submit"
+            class="absolute right-3 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-md"
+          >
+            <i data-lucide="send" class="w-4 h-4"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div
+      class="w-1/2 flex flex-col h-full bg-slate-50 relative overflow-hidden"
+    >
+      <div
+        class="absolute top-6 left-6 right-6 z-20 flex justify-between items-start pointer-events-none"
+      >
+        <h2
+          class="text-lg font-bold flex items-center gap-2 text-slate-700 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-lg shadow-sm border border-slate-200"
+        >
+          <i data-lucide="network" class="text-blue-500"></i> Clinical Knowledge
+          Graph
+        </h2>
+
+        <button
+          onclick="toggleTelemetry()"
+          class="pointer-events-auto flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 text-sm font-bold px-4 py-2.5 rounded-lg border border-slate-200 shadow-sm transition-all hover:shadow-md"
+        >
+          <i data-lucide="bar-chart-2" class="w-4 h-4 text-blue-500"></i> MediQ
+          Telemetry
+        </button>
+      </div>
+
+      <div class="flex-1 relative">
+        <div id="mynetwork"></div>
+        <div
+          id="empty-graph"
+          class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 pointer-events-none transition-opacity duration-500"
+        >
+          <i
+            data-lucide="clipboard-list"
+            class="w-16 h-16 mb-4 opacity-30 text-blue-300"
+          ></i>
+          <p class="text-sm font-medium tracking-wide">
+            Graph is empty. Query the database to build patient nodes.
+          </p>
+        </div>
+      </div>
+
+      <div
+        id="telemetry-drawer"
+        class="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl border-l border-slate-200 transform translate-x-full transition-transform duration-300 ease-in-out z-50 flex flex-col"
+      >
+        <div
+          class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50"
+        >
+          <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i data-lucide="activity" class="text-blue-500"></i> Live Routing
+            Metrics
+          </h2>
+          <button
+            onclick="toggleTelemetry()"
+            class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+          >
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="p-6 flex-1 overflow-y-auto space-y-8">
+          <div
+            class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm"
+          >
+            <h3
+              class="text-xs font-bold text-slate-400 mb-4 uppercase tracking-wider text-center"
+            >
+              Data Interception Rate
+            </h3>
+            <canvas id="routingChart" height="200"></canvas>
+          </div>
+
+          <div
+            class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm"
+          >
+            <h3
+              class="text-xs font-bold text-slate-400 mb-4 uppercase tracking-wider text-center"
+            >
+              Queue Reduction (Latency in Secs)
+            </h3>
+            <canvas id="latencyChart" height="200"></canvas>
+          </div>
+
+          <div
+            class="text-xs text-slate-500 text-center px-4 leading-relaxed bg-blue-50 p-3 rounded-lg border border-blue-100"
+          >
+            <strong class="text-blue-700">MediQ Advantage:</strong> Graph hits
+            bypass the external database, resulting in near-instant clinical
+            data retrieval and zero external database load.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      lucide.createIcons();
+      let currentSessionId = "";
+
+      // --- UI Toggles ---
+      function toggleTelemetry() {
+        document
+          .getElementById("telemetry-drawer")
+          .classList.toggle("translate-x-full");
+      }
+      function toggleSessionDrawer() {
+        document
+          .getElementById("session-drawer")
+          .classList.toggle("-translate-x-full");
+      }
+
+      // --- Session Management ---
+      async function loadSessions() {
+        const res = await fetch("/api/sessions");
+        const sessions = await res.json();
+        const list = document.getElementById("session-list");
+        list.innerHTML = "";
+
+        if (!currentSessionId && sessions.length > 0)
+          currentSessionId = sessions[0].id;
+
+        sessions.forEach((s) => {
+          const isActive = s.id === currentSessionId;
+          list.innerHTML += `
+                    <button onclick="switchSession('${s.id}')" class="w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-all ${isActive ? "bg-blue-100 text-blue-800 border border-blue-200 shadow-sm" : "text-slate-600 hover:bg-slate-100 border border-transparent"}">
+                        <i data-lucide="message-square" class="inline w-4 h-4 mr-2 ${isActive ? "text-blue-600" : "text-slate-400"}"></i> ${s.name}
+                    </button>`;
+        });
+        lucide.createIcons();
+      }
+
+      async function switchSession(sid) {
+        currentSessionId = sid;
+        document.getElementById("chat-box").innerHTML = ""; // Clear chat UI
+        if (
+          !document
+            .getElementById("session-drawer")
+            .classList.contains("-translate-x-full")
+        ) {
+          toggleSessionDrawer(); // Close drawer if open
+        }
+
+        // Load Chat History for this session
+        const res = await fetch(`/api/history?session_id=${sid}`);
+        const history = await res.json();
+
+        if (history.length === 0) {
+          appendMessage(
+            "agent",
+            "MediQ session initialized. Graph and context are clean. Ready to assist with patient records and clinical routing.",
+          );
+        } else {
+          history.forEach((msg) =>
+            appendMessage(msg.role === "user" ? "user" : "agent", msg.content),
+          );
+        }
+
+        fetchUpdates(); // Update Graph & Telemetry for this specific session
+        loadSessions(); // Re-render sidebar to show active state
+      }
+
+      async function createNewSession() {
+        const res = await fetch("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const data = await res.json();
+        switchSession(data.id);
+      }
+
+      // --- Chart.js Setup ---
+      const routingCtx = document
+        .getElementById("routingChart")
+        .getContext("2d");
+      let routingChart = new Chart(routingCtx, {
+        type: "doughnut",
+        data: {
+          labels: ["MediQ Graph (Fast)", "DB Miss (Slow)"],
+          datasets: [
+            {
+              data: [0, 0],
+              backgroundColor: ["#14b8a6", "#f59e0b"],
+              borderWidth: 0,
+              hoverOffset: 4,
+            },
+          ],
+        },
+        options: {
+          cutout: "70%",
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: {
+                usePointStyle: true,
+                boxWidth: 8,
+                font: { family: "ui-sans-serif" },
+              },
+            },
+          },
+        },
+      });
+
+      const latencyCtx = document
+        .getElementById("latencyChart")
+        .getContext("2d");
+      let latencyChart = new Chart(latencyCtx, {
+        type: "bar",
+        data: {
+          labels: ["MediQ Graph", "DB Fetch"],
+          datasets: [
+            {
+              label: "Avg Response Time (s)",
+              data: [0, 0],
+              backgroundColor: ["#14b8a6", "#f59e0b"],
+              borderRadius: 6,
+            },
+          ],
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { borderDash: [4, 4], color: "#f1f5f9" },
+              border: { display: false },
+            },
+            x: { grid: { display: false }, border: { display: false } },
+          },
+        },
+      });
+
+      // --- Vis.js Graph Setup ---
+      const nodesDataset = new vis.DataSet();
+      const edgesDataset = new vis.DataSet();
+      const container = document.getElementById("mynetwork");
+
+      let network = new vis.Network(
+        container,
+        { nodes: nodesDataset, edges: edgesDataset },
+        {
+          nodes: {
+            shape: "dot",
+            size: 16,
+            font: {
+              color: "#334155",
+              size: 12,
+              face: "ui-sans-serif",
+              background: "rgba(255,255,255,0.8)",
+            },
+            color: {
+              background: "#3b82f6",
+              border: "#2563eb",
+              highlight: { background: "#14b8a6", border: "#0d9488" },
+            },
+            shadow: {
+              enabled: true,
+              color: "rgba(59, 130, 246, 0.2)",
+              size: 10,
+              x: 0,
+              y: 4,
+            },
+          },
+          edges: {
+            width: 1.5,
+            color: { color: "#cbd5e1", highlight: "#94a3b8" },
+            font: {
+              color: "#64748b",
+              size: 10,
+              align: "top",
+              background: "#f8fafc",
+            },
+            smooth: { type: "continuous" },
+            arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+          },
+          physics: {
+            forceAtlas2Based: {
+              gravitationalConstant: -40,
+              centralGravity: 0.005,
+              springLength: 150,
+              springConstant: 0.05,
+              damping: 0.09,
+            },
+            maxVelocity: 40,
+            solver: "forceAtlas2Based",
+            timestep: 0.35,
+          },
+          interaction: { hover: true, tooltipDelay: 200 },
+        },
+      );
+
+      network.on("stabilizationIterationsDone", function () {
+        network.setOptions({ physics: false });
+      });
+      network.on("dragStart", function () {
+        network.setOptions({ physics: true });
+      });
+      network.on("dragEnd", function () {
+        setTimeout(() => network.setOptions({ physics: false }), 1500);
+      });
+
+      // --- Data Fetching (Graph & Telemetry) ---
+      async function fetchUpdates() {
+        // Fetch Graph for active session
+        const resGraph = await fetch(
+          `/api/graph?session_id=${currentSessionId}`,
+        );
+        const data = await resGraph.json();
+        document.getElementById("empty-graph").style.opacity =
+          data.nodes.length > 0 ? "0" : "1";
+
+        nodesDataset.clear();
+        edgesDataset.clear();
+        nodesDataset.update(data.nodes);
+        edgesDataset.update(data.edges);
+
+        network.setOptions({ physics: true });
+        setTimeout(() => network.setOptions({ physics: false }), 2000);
+
+        // Fetch Stats for active session
+        const resStats = await fetch(
+          `/api/stats?session_id=${currentSessionId}`,
+        );
+        const stats = await resStats.json();
+
+        routingChart.data.datasets[0].data = [stats.hits, stats.misses];
+        routingChart.update();
+        latencyChart.data.datasets[0].data = [
+          stats.avg_hit_time,
+          stats.avg_miss_time,
+        ];
+        latencyChart.update();
+      }
+
+      // --- Chat Logic & UI Rendering ---
+      const form = document.getElementById("chat-form");
+      const input = document.getElementById("user-input");
+      const box = document.getElementById("chat-box");
+
+      function appendMessage(role, text) {
+        const div = document.createElement("div");
+        div.className = "flex gap-4 msg-enter";
+        if (role === "user") {
+          div.innerHTML = `<div class="w-9 h-9 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-xs border border-slate-200 shadow-sm"><i data-lucide="user" class="w-5 h-5"></i></div><div class="flex-1 pt-1.5"><p class="text-sm text-slate-700 leading-relaxed">${text}</p></div>`;
+        } else {
+          let formattedText = text;
+          // Add beautiful pill badges if the AI used specific routing
+          if (text.includes("⚡ [Fast Graph Response]")) {
+            formattedText = text.replace(
+              "⚡ [Fast Graph Response]",
+              '<span class="inline-flex items-center gap-1 text-teal-700 bg-teal-100 px-2.5 py-1 rounded-md text-[11px] font-bold border border-teal-200 mr-2 uppercase tracking-wider shadow-sm"><i data-lucide="zap" class="w-3 h-3"></i> Graph Hit</span>',
+            );
+          } else if (text.includes("🔍 [Database & Extractor Response]")) {
+            formattedText = text.replace(
+              "🔍 [Database & Extractor Response]",
+              '<span class="inline-flex items-center gap-1 text-amber-700 bg-amber-100 px-2.5 py-1 rounded-md text-[11px] font-bold border border-amber-200 mr-2 uppercase tracking-wider shadow-sm"><i data-lucide="database" class="w-3 h-3"></i> DB Fetch</span>',
+            );
+          }
+
+          div.innerHTML = `<div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-teal-500 text-white flex items-center justify-center shadow-md"><i data-lucide="stethoscope" class="w-5 h-5"></i></div><div class="flex-1 pt-1.5"><p class="text-sm text-slate-600 leading-relaxed">${formattedText}</p></div>`;
+        }
+        box.appendChild(div);
+        lucide.createIcons();
+        box.scrollTop = box.scrollHeight;
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const msg = input.value.trim();
+        if (!msg) return;
+
+        appendMessage("user", msg);
+        input.value = "";
+
+        const loadingId = "loading-" + Date.now();
+        box.insertAdjacentHTML(
+          "beforeend",
+          `<div id="${loadingId}" class="flex gap-4 text-blue-500 text-sm font-medium msg-enter"><div class="w-9 h-9 flex items-center justify-center"><i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i></div><div class="pt-2">Routing query through MediQ...</div></div>`,
+        );
+        lucide.createIcons();
+        box.scrollTop = box.scrollHeight;
+
+        try {
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message: msg,
+              session_id: currentSessionId,
+            }), // Crucial: Send active session ID
+          });
+          const data = await res.json();
+
+          document.getElementById(loadingId).remove();
+          appendMessage("agent", data.reply);
+
+          fetchUpdates();
+        } catch (err) {
+          document.getElementById(loadingId).remove();
+          appendMessage("agent", "Error connecting to the MediQ core.");
+        }
+      });
+
+      // --- Application Bootstrap ---
+      async function initApp() {
+        await loadSessions();
+        if (currentSessionId) {
+          switchSession(currentSessionId);
+        }
+      }
+
+      // Start the app!
+      initApp();
+    </script>
+  </body>
+</html>
