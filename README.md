@@ -57,13 +57,13 @@ cd mediq
 
 ## Step 2: Start MongoDB via Docker
 
-Spin up a local MongoDB instance to act as the legacy hospital database.
+Spin up a local MongoDB instance to act as the legacy hospital database. Use the import.js on a MongoDb Database PLayground to directly import into Your mongo instance
 
 ```bash
 docker run -d -p 27017:27017 --name mediq-mongo mongo:latest
 ```
 
-> **Note:** Ensure your Maven Analytics healthcare dataset is imported into a database named `healthcare_db` within this Mongo instance.
+> **Note:** Ensure your Maven Analytics healthcare dataset is imported into a database named `healthcare_db` within this Mongo instance. The import.js does this on its own
 
 ---
 
