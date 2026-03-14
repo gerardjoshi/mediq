@@ -258,7 +258,7 @@ def chat():
 
             messages.append({"role": "tool", "tool_call_id": tool_call.id, "name": tool_name, "content": result_str})
             
-        # Final LLM call after tools finish
+        # Final LLM call after the tools finish
         final_response = client.chat.completions.create(model="llama-3.1-8b-instant", messages=messages)
         reply = source_badge + final_response.choices[0].message.content
         
@@ -276,7 +276,7 @@ def chat():
     session["memory"].append({"role": "user", "content": user_msg})
     session["memory"].append({"role": "assistant", "content": reply})
     
-    # Log telemetry heloo
+    # Log telemetry 
     session["metrics"]["graph_hits"] += 1
     session["metrics"]["total_hit_time"] += (time.time() - start_time)
     return jsonify({"reply": reply})
