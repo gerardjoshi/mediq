@@ -276,7 +276,7 @@ def chat():
     session["memory"].append({"role": "user", "content": user_msg})
     session["memory"].append({"role": "assistant", "content": reply})
     
-    # Log telemetry
+    # Log telemetry heloo
     session["metrics"]["graph_hits"] += 1
     session["metrics"]["total_hit_time"] += (time.time() - start_time)
     return jsonify({"reply": reply})
